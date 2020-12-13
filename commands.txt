@@ -1,0 +1,84 @@
+#installs ccloud CLI
+curl -L --http1.1 https://cnfl.io/ccloud-cli | sh -s -- -b /usr/local/bin
+
+#updates ccloud if already installed
+ccloud update
+
+#prompts user to login with their email and password to their Confluent Cloud account
+ccloud login --save
+
+#shows Confluent Cloud Environments
+ccloud environmnet list
+
+#replace whole < > section
+ccloud environment use <environment_id>
+
+ccloud kafka cluster list
+#replace whole < > section
+ccloud kafka cluster use <kafka_cluster_id>
+
+#replace whole < > section
+ccloud api-key create --resource <kafka_cluster_id>
+
+# replace both < > sections 
+ccloud api-key use <API Key> --resource <kafka_cluster_id>
+
+#creates pageviews topic
+ccloud kafka topic create pageviews
+
+#shows all topics in kafka cluster
+ccloud kafka topic list
+
+#enter messages into pageviews, this will prompt you to enter messages
+ccloud kafka topic produce pageviews
+
+#consume messages in these topics
+ccloud kafka topic consume -b pageviews
+
+ccloud kafka topic consume -b users
+
+
+## PYTHON SECTION ##
+
+#opens new file called consume.py
+vi consume.py
+
+#makes consume.py executable
+chmod +x consume.py
+
+#runs consume.py 
+./consume.py
+
+## ksqlDB section ##
+
+#run from UI
+CREATE STREAM pageviews_original (viewtime bigint, userid varchar, pageid varchar) WITH
+(kafka_topic='pageviews', value_format='JSON');
+
+#terminal:
+ccloud kafka cluster list
+ccloud ksql app list
+
+#allows ksqlDB app to use these topics
+ccloud ksql app configure-acls <kqlDB_app_id> users --cluster <kafka_cluster_id>
+ccloud ksql app configure-acls <kqlDB_app_id> pageviews --cluster <kafka_cluster_id>
+
+#creates stream called pageviews_orginial 
+CREATE STREAM pageviews_original (viewtime bigint, userid varchar, pageid varchar) WITH
+(kafka_topic='pageviews', value_format='JSON');
+
+SELECT * FROM PAGEVIEWS_ORIGINAL EMIT CHANGES;
+
+#creates table called users
+CREATE TABLE users (userid VARCHAR PRIMARY KEY, registertime BIGINT, gender VARCHAR, regionid VARCHAR) WITH
+(KAFKA_TOPIC='users', VALUE_FORMAT='JSON');
+
+SELECT * FROM users EMIT CHANGES;
+
+#creates streaming query based on stream and table previously created
+CREATE STREAM pageviews_enriched AS
+SELECT users.userid AS userid, pageid, regionid, gender
+FROM pageviews_original
+LEFT JOIN users
+  ON pageviews_original.userid = users.userid
+EMIT CHANGES;
